@@ -1,0 +1,24 @@
+= GitHub Reusable Workflows
+ifdef::env-github[]
+:imagesdir:
+ https://gist.githubusercontent.com/path/to/gist/revision/dir/with/all/images
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+ifndef::env-github[]
+:imagesdir: ./
+endif::[]
+:toc:
+:toc-placement!:
+
+toc::[]
+
+== Usage
+
+You reference reusable workflow files using one of the following syntaxes:
+
+`{owner}/{repo}/.github/workflows/{filename}@{ref}`:: for reusable workflows in public and private repositories --  `kriipke/workflows/.github/workflows/example.yml@main`
+`./.github/workflows/{filename}`:: for reusable workflows in the same repository.
