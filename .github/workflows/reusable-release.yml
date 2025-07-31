@@ -1,0 +1,49 @@
+name: reusable-release
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: false
+        type: string
+        default: main
+    secrets:
+      token:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == format('refs/heads/{0}', inputs.branch) || startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - id: bumpr
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: haya14busa/action-bumpr@v1
+
+      - name: Update major/minor tags
+        uses: haya14busa/action-update-semver@v1.3.0
+        if: "!steps.bumpr.outputs.skip"
+        with:
+          tag: ${{ steps.bumpr.outputs.next_version }}
+
+      - id: tag
+        uses: haya14busa/action-cond@v1.2.1
+        with:
+          cond: "${{ startsWith(github.ref, 'refs/tags/') }}"
+          if_true: ${{ github.ref }}
+          if_false: ${{ steps.bumpr.outputs.next_version }}
+
+      - name: Create GitHub release
+        if: steps.tag.outputs.value != ''
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.token }}
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          release_name: Release ${{ steps.tag.outputs.value }}
+          body: ${{ steps.bumpr.outputs.message }}
+          draft: false
+          prerelease: false
