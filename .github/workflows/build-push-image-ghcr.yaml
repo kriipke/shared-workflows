@@ -18,6 +18,10 @@ on:
         required: false
         default: true
         type: boolean
+      build_args:
+        description: "Docker build arguments (multi-line string: KEY=VALUE per line)"
+        required: false
+        type: string
 
 jobs:
   build:
@@ -64,6 +68,8 @@ jobs:
           push: ${{ inputs.push }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          ${{ inputs.build_args && format('build-args: |
+            {0}', inputs.build_args) || '' }}
 
       # Sign image (only if push is true)
       - name: Sign image with cosign
