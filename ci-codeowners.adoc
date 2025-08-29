@@ -1,0 +1,25 @@
+= `CODEOWNERS` 
+:workflows_repo: zinc-devops/workflows
+
+== `ci-codeowners.yaml`
+
+```yaml
+name: ci-codeowners
+on:
+  workflow_call:
+
+# or, for a repo workflow that *calls* the reusable one:
+# on:
+#   pull_request:
+#   push:
+
+jobs:
+  ci-codeowners:
+    uses: zinc-devops/workflows/.github/workflows/ci-codeowners.yml@main
+    with:
+      is_fork: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+      runs-on: '["ubuntu-latest"]'
+      # Flip to true only where a GitHub App is available and installed
+      enable_owners_check: false
+    secrets: inherit
+```
