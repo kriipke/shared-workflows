@@ -1,0 +1,97 @@
+name: CI • CODEOWNERS (syntax + optional owners)
+
+on:
+  workflow_call:
+    inputs:
+      is_fork:
+        description: "Run in fork mode (reduced permissions/features)"
+        type: boolean
+        required: true
+      runs-on:
+        description: 'Override job runs-on (JSON list), e.g. ["ubuntu-latest"]'
+        type: string
+        required: false
+        default: '["ubuntu-latest"]'
+      enable_owners_check:
+        description: "Enable 'owners' check (requires GitHub App token)"
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      BOT_GITHUB_APP_PRIVATE_KEY:
+        required: false
+    outputs:
+      syntax_status:
+        description: "Result of syntax job"
+        value: ${{ jobs.syntax.outputs.result }}
+
+# Default to read-only; escalate per-job if needed
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  syntax:
+    name: Validate CODEOWNERS (syntax/dup patterns)
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    outputs:
+      result: ${{ steps.result.outputs.value }}
+    steps:
+      - name: Harden runner
+        run: |
+          set -euo pipefail
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate CODEOWNERS (syntax + dup patterns)
+        id: validate
+        uses: mszostok/codeowners-validator@v0.7.4
+        with:
+          checks: syntax,duppatterns
+          owner_checker_allow_unowned_patterns: "false"
+
+      - name: Expose job result
+        id: result
+        run: |
+          echo "value=success" >> "$GITHUB_OUTPUT"
+
+  owners:
+    # Only run when explicitly enabled AND not a fork (needs elevated token)
+    if: ${{ inputs.enable_owners_check && !inputs.is_fork }}
+    name: Validate CODEOWNERS (owners)
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    # Needs the app token to query owners/teams; grant minimal scopes at job-level
+    permissions:
+      contents: read
+      # Some org/team lookups require read:org via App permissions;
+      # the create-github-app-token action uses the App's configured permissions.
+      # See: Create GitHub App Token action docs.
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.BOT_GITHUB_APP_ID }}
+          private-key: ${{ secrets.BOT_GITHUB_APP_PRIVATE_KEY }}
+          # Optional: limit to current repo; defaults are already scoped
+          # owner: ${{ github.repository_owner }}
+          # repositories: ${{ github.event.repository.name }}
+      - name: Checkout (with App token)
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Validate CODEOWNERS (owners)
+        uses: mszostok/codeowners-validator@v0.7.4
+        with:
+          checks: owners
+          owner_checker_allow_unowned_patterns: "false"
+          github_access_token: ${{ steps.app-token.outputs.token }}
